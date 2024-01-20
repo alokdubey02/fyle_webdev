@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <title>GitHub Repositories Viewer</title>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
+    <style>
+      body {
+        padding: 20px;
+      }
+
+      .loader {
+        display: none;
+      }
+
+      .user-container {
+        display: flex;
+        margin-bottom: 20px;
+      }
+
+      .user-image {
+        width: 100px;
+        height: 100px;
+        margin-right: 20px;
+      }
+
+      .user-details {
+        flex-grow: 1;
+      }
+
+      .repo-container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+      }
+
+      .page-link.active {
+        background-color: #007bff;
+        color: #fff;
+        border-radius: 3px;
+      }
+
+      .repo-box {
+        flex-basis: 42%;
+        margin: 10px;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        box-shadow: 0px 0px 15px 2px;
+        background-color: aliceblue;
+      }
+
+      .repo-language-box {
+        background-color: #007bff;
+        color: #fff;
+        padding: 5px;
+        border-radius: 3px;
+        display: inline-block;
+      }
+
+      .upper {
+        box-shadow: 0px 0px 15px 2px;
+        padding: 30px 50px;
+        width: 700px;
+        margin: 0px auto;
+        border-radius: 5px;
+      }
+
+      .user-container {
+        background: #add7fb;
+        padding: 20px;
+        border-radius: 5px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="upper">
+        <h2 class="mb-4" style="text-align: center">
+          GitHub Repositories Viewer
+        </h2>
+
+        <div style="display: flex; justify-content: space-between">
+          <div class="form-group">
+            <label for="username">GitHub Username:</label>
+            <input
+              type="text"
+              class="form-control"
+              style="width: 330px"
+              id="username"
+              placeholder="Enter username"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="perPage">Repositories per page:</label>
+            <select
+              class="form-control"
+              id="perPage"
+              onchange="changePerPage()"
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+        </div>
+
+        <div
+          class="form-group"
+          style="width: 200px; margin: 10px 0px 20px auto"
+        >
+          <label for="search">Filter</label>
+          <input
+            type="text"
+            class="form-control"
+            id="search"
+            placeholder="Enter search term"
+          />
+        </div>
+
+        <button
+          class="btn btn-primary"
+          style="width: 100%"
+          onclick="getRepositories()"
+        >
+          Get Repositories
+        </button>
+      </div>
+
+      <div id="datapresent" style="margin: 35px 0px; padding: 20px">
+        <div class="loader mt-4">
+          <img
+            src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/0.16.1/images/loader-large.gif"
+            alt="Loading..."
+          />
+        </div>
+
+        <div class="user-container" id="userDetails" style="display: none">
+          <img src="" alt="User Image" class="user-image" id="userImage" />
+          <div class="user-details" id="userDetailsContent">
+            <h2 id="userName"></h2>
+            <p id="userDescription"></p>
+            <p id="userLink"></p>
+          </div>
+        </div>
+
+        <div class="repo-container" id="repositories"></div>
+
+        <div class="d-flex justify-content-center m-4">
+          <div class="pagination" id="pagination"></div>
+        </div>
+      </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+    <!-- <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script> -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+      let currentPage = 1;
+      let itemsPerPage = 10;
+      let totalRepositories = 0;
+      let dataArray = null;
+
+      function getRepositories() {
+        const username = $("#username").val().trim();
+
+        if (username === "") {
+          alert("Please enter a GitHub username.");
+          return;
+        }
+
+        // Display loader
+        $(".loader").show();
+
+        // Make API call for a specific page
+        const apiUrl = `https://api.github.com/users/${username}/repos`;
+
+        $.get(apiUrl)
+          .done((response) => {
+            totalRepositories = response.length;
+
+            if (totalRepositories > 0) {
+              $("#datapresent").css({
+                border: "1px solid",
+                "border-radius": "5px",
+              });
+              displayUserDetails(response[0]?.owner);
+              dataArray = response;
+              updateDataAndPagination(response);
+            } else {
+              // Hide user details and repositories containers
+              $(
+                "#datapresent, #userDetails, #repositories, #pagination"
+              ).hide();
+            }
+          })
+          .fail((error) => {
+            alert(`Error fetching repositories: ${error.statusText}`);
+          })
+          .always(() => {
+            // Hide loader regardless of success or failure
+            $(".loader").hide();
+          });
+      }
+
+      function displayUserDetails(owner) {
+        const userImage = $("#userImage");
+        const userName = $("#userName");
+        const userDescription = $("#userDescription");
+        const userLink = $("#userLink");
+        const userDetails = $("#userDetails");
+
+        userImage.attr("src", owner.avatar_url);
+        userName.text(owner.login);
+        userDescription.text(owner.description || "No description available");
+        userLink.html(
+          `<a href="${owner.html_url}" target="_blank">${owner.html_url}</a>`
+        );
+
+        // Display user details container
+        userDetails.show();
+      }
+
+      function paginateArray(array, currentPage, itemsPerPage) {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        return array.slice(startIndex, endIndex);
+      }
+
+      function updateDataAndPagination(dataArray) {
+        const paginatedData = paginateArray(
+          dataArray,
+          currentPage,
+          itemsPerPage
+        );
+        displayRepositories(paginatedData);
+        displayPagination(Math.ceil(dataArray.length / itemsPerPage));
+      }
+
+      function changePage(page) {
+        currentPage = page;
+        updateDataAndPagination(dataArray);
+      }
+
+      function displayPagination(totalPages) {
+        const pagination = document.getElementById("pagination");
+        pagination.innerHTML = "";
+
+        const firstButton = document.createElement("button");
+        firstButton.className = "btn mr-2";
+        firstButton.textContent = "<--Newer";
+        firstButton.style.borderRadius = "10px";
+        firstButton.style.border = "1px solid";
+        firstButton.style.color = "blue";
+        if (currentPage > 1)
+          firstButton.onclick = () => changePage(currentPage - 1);
+        // firstButton.onclick = () => changePage(1);
+        pagination.appendChild(firstButton);
+
+        // Previous Button
+        if (currentPage != 1) {
+          const prevButton = document.createElement("span");
+          prevButton.className = "page-link";
+          prevButton.textContent = "<<";
+          prevButton.onclick = () => changePage(currentPage - 1);
+          // prevButton.disabled = currentPage === 1;
+          pagination.appendChild(prevButton);
+        }
+
+        // Page Links
+        for (let i = 1; i <= totalPages; i++) {
+          const pageLink = document.createElement("span");
+          pageLink.className = `page-link ${currentPage === i ? "active" : ""}`;
+          pageLink.textContent = i;
+          pageLink.onclick = () => changePage(i);
+          pagination.appendChild(pageLink);
+        }
+
+        // Next Button
+        if (currentPage != totalPages) {
+          const nextButton = document.createElement("span");
+          nextButton.className = "page-link mr-2";
+          nextButton.textContent = ">>";
+          // nextButton.disabled = currentPage === totalPages;
+          nextButton.onclick = () => changePage(currentPage + 1);
+          pagination.appendChild(nextButton);
+        }
+
+        const lastButton = document.createElement("button");
+        lastButton.className = "btn";
+        lastButton.textContent = "Older-->";
+        lastButton.style.borderRadius = "10px";
+        lastButton.style.border = "1px solid";
+        lastButton.style.color = "blue";
+        // lastButton.onclick = () => changePage(totalPages);
+        if (currentPage < totalPages)
+          lastButton.onclick = () => changePage(currentPage + 1);
+        pagination.appendChild(lastButton);
+      }
+
+      function changePerPage() {
+        itemsPerPage = parseInt(document.getElementById("perPage").value, 10);
+        currentPage = 1; // Reset to the first page when changing items per page
+        updateDataAndPagination(dataArray);
+      }
+
+      function displayRepositories(repositories) {
+        const repositoriesContainer = $("#repositories");
+        const search = $("#search").val().trim();
+        repositoriesContainer.html("");
+
+        repositories.forEach((repo) => {
+          // Filter repositories based on search term
+          if (
+            search.trim() === "" ||
+            repo.name.toLowerCase().includes(search.toLowerCase())
+          ) {
+            const repoBox = $("<div>").addClass("repo-box");
+            repoBox.html(`
+                         <h5>${repo.name}</h5>
+                         <p>${
+                           repo.description || "No description available"
+                         }</p>
+                         <div class="repo-language-box">${
+                           repo.language || "Language not specified"
+                         }</div>
+                         `);
+            repositoriesContainer.append(repoBox);
+          }
+        });
+      }
+    </script>
+  </body>
+</html>
